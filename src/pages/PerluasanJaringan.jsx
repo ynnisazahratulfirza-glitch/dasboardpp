@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import * as XLSX from 'xlsx'
 import { db } from '../firebase.js'
 import {
   collection,
@@ -139,6 +140,33 @@ export default function PerluasanJaringan() {
     setHapusSemuaConfirm(false)
   }
 
+  const handleExportExcel = () => {
+    if (data.length === 0) { toast.error('Tidak ada data untuk diekspor!'); return }
+    const rows = data.map((item, idx) => ({
+      'No': idx + 1,
+      'Nodin / Nota Dinas': item.nadinNps || '',
+      'Nama Pelanggan': item.namaPelanggan || '',
+      'ID Pelanggan': item.idPelanggan || '',
+      'Kontrak': item.kontrak || '',
+      'Vendor': item.vendor || '',
+      'Progres': item.progres || '',
+      'No. Agenda': item.noAgenda || '',
+      'Tanggal Bayar': item.tanggalBayar || '',
+      'Keterangan': item.keterangan || '',
+    }))
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Perluasan Jaringan')
+    // Set lebar kolom otomatis
+    ws['!cols'] = [
+      { wch: 5 }, { wch: 22 }, { wch: 24 }, { wch: 18 },
+      { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 18 },
+      { wch: 16 }, { wch: 30 },
+    ]
+    XLSX.writeFile(wb, `Perluasan_Jaringan_${new Date().toLocaleDateString('id-ID').replace(/\//g, '-')}.xlsx`)
+    toast.success('Data berhasil diekspor ke Excel!')
+  }
+
   const getProgresConfig = (progres) => {
     const p = String(progres).toLowerCase()
     if (p.includes('selesai') || p.includes('done')) return { color: '#00873a', bg: '#d6f0e0', label: progres }
@@ -163,9 +191,12 @@ export default function PerluasanJaringan() {
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
         <button onClick={handleOpenAdd} style={styles.addBtn}>Tambah Data</button>
         {data.length > 0 && (
-          <button onClick={() => setHapusSemuaConfirm(true)} style={styles.hapusSemuaBtn}>
-            Hapus Semua
-          </button>
+          <>
+            <button onClick={handleExportExcel} style={styles.exportBtn}>Export Excel</button>
+            <button onClick={() => setHapusSemuaConfirm(true)} style={styles.hapusSemuaBtn}>
+              Hapus Semua
+            </button>
+          </>
         )}
       </div>
       </div>
@@ -203,7 +234,7 @@ export default function PerluasanJaringan() {
               <thead>
                 <tr style={styles.tableHeadRow}>
                   <th style={styles.th}>No</th>
-                  <th style={styles.th}>Nadin / NPS</th>
+                  <th style={styles.th}>Nodin / Nota Dinas</th>
                   <th style={styles.th}>Nama Pelanggan</th>
                   <th style={styles.th}>ID Pelanggan</th>
                   <th style={styles.th}>Kontrak</th>
@@ -307,7 +338,7 @@ export default function PerluasanJaringan() {
                 Identitas
               </div>
               <div style={styles.formGrid}>
-                <FormField label="Nadin / NPS" required name="nadinNps" value={form.nadinNps} onChange={handleChange} placeholder="Contoh: NPS-001" />
+                <FormField label="Nodin / Nota Dinas" required name="nadinNps" value={form.nadinNps} onChange={handleChange} placeholder="Contoh: ND-001/2024" />
                 <FormField label="Nama Pelanggan" name="namaPelanggan" value={form.namaPelanggan} onChange={handleChange} placeholder="Nama lengkap pelanggan" />
                 <FormField label="ID Pelanggan" name="idPelanggan" value={form.idPelanggan} onChange={handleChange} placeholder="Contoh: 5210xxxxxxxx" />
                 <FormField label="No. Agenda" name="noAgenda" value={form.noAgenda} onChange={handleChange} placeholder="Nomor agenda" />
@@ -541,6 +572,17 @@ const styles = {
     fontSize: '14px',
     fontWeight: '600',
     boxShadow: '0 2px 8px rgba(0,32,96,0.25)',
+  },
+  exportBtn: {
+    backgroundColor: '#00873a',
+    color: 'white',
+    border: 'none',
+    padding: '11px 18px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    boxShadow: '0 2px 8px rgba(0,135,58,0.25)',
   },
   hapusSemuaBtn: {
     backgroundColor: 'white',
