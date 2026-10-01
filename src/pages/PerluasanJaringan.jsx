@@ -14,12 +14,17 @@ import toast from 'react-hot-toast'
 
 const emptyForm = {
   nadinNps: '',
+  namaPelanggan: '',
+  idPelanggan: '',
   kontrak: '',
   vendor: '',
   progres: '',
   noAgenda: '',
   tanggalBayar: '',
   keterangan: '',
+  fileBase64: '',
+  fileName: '',
+  fileType: '',
 }
 
 export default function PerluasanJaringan() {
@@ -48,12 +53,46 @@ export default function PerluasanJaringan() {
 
   const handleOpenAdd = () => { setForm(emptyForm); setEditId(null); setShowModal(true) }
   const handleOpenEdit = (item) => {
-    setForm({ nadinNps: item.nadinNps || '', kontrak: item.kontrak || '', vendor: item.vendor || '', progres: item.progres || '', noAgenda: item.noAgenda || '', tanggalBayar: item.tanggalBayar || '', keterangan: item.keterangan || '' })
+    setForm({
+      nadinNps: item.nadinNps || '',
+      namaPelanggan: item.namaPelanggan || '',
+      idPelanggan: item.idPelanggan || '',
+      kontrak: item.kontrak || '',
+      vendor: item.vendor || '',
+      progres: item.progres || '',
+      noAgenda: item.noAgenda || '',
+      tanggalBayar: item.tanggalBayar || '',
+      keterangan: item.keterangan || '',
+      fileBase64: item.fileBase64 || '',
+      fileName: item.fileName || '',
+      fileType: item.fileType || '',
+    })
     setEditId(item.id)
     setShowModal(true)
   }
   const handleCloseModal = () => { setShowModal(false); setEditId(null); setForm(emptyForm) }
   const handleChange = (e) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    // Batasi ukuran file max 500KB agar bisa disimpan di Firestore
+    if (file.size > 500 * 1024) {
+      alert('Ukuran file maksimal 500KB. Kompres file terlebih dahulu.')
+      e.target.value = ''
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      setForm((prev) => ({
+        ...prev,
+        fileBase64: ev.target.result,
+        fileName: file.name,
+        fileType: file.type,
+      }))
+    }
+    reader.readAsDataURL(file)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -144,12 +183,15 @@ export default function PerluasanJaringan() {
                 <tr style={styles.tableHeadRow}>
                   <th style={styles.th}>No</th>
                   <th style={styles.th}>Nadin / NPS</th>
+                  <th style={styles.th}>Nama Pelanggan</th>
+                  <th style={styles.th}>ID Pelanggan</th>
                   <th style={styles.th}>Kontrak</th>
                   <th style={styles.th}>Vendor</th>
                   <th style={styles.th}>Progres</th>
                   <th style={styles.th}>No. Agenda</th>
                   <th style={styles.th}>Tanggal Bayar</th>
                   <th style={styles.th}>Keterangan</th>
+                  <th style={styles.th}>Dokumen</th>
                   <th style={styles.th}>Aksi</th>
                 </tr>
               </thead>
@@ -165,6 +207,8 @@ export default function PerluasanJaringan() {
                           <span style={{ fontWeight: '600', color: '#222' }}>{item.nadinNps || '-'}</span>
                         </div>
                       </td>
+                      <td style={styles.td}>{item.namaPelanggan || '-'}</td>
+                      <td style={styles.td}><span style={styles.idBadge}>{item.idPelanggan || '-'}</span></td>
                       <td style={styles.td}>{item.kontrak || '-'}</td>
                       <td style={styles.td}>{item.vendor || '-'}</td>
                       <td style={styles.td}>
@@ -175,6 +219,19 @@ export default function PerluasanJaringan() {
                       <td style={styles.td}>{item.noAgenda || '-'}</td>
                       <td style={styles.td}>{item.tanggalBayar || '-'}</td>
                       <td style={{ ...styles.td, maxWidth: '160px', fontSize: '12px', color: '#777' }}>{item.keterangan || '-'}</td>
+                      <td style={styles.td}>
+                        {item.fileBase64 ? (
+                          <a
+                            href={item.fileBase64}
+                            download={item.fileName || 'dokumen'}
+                            style={styles.docBtn}
+                          >
+                            {item.fileType?.includes('pdf') ? 'PDF' : 'Foto'}
+                          </a>
+                        ) : (
+                          <span style={{ color: '#ccc', fontSize: '12px' }}>-</span>
+                        )}
+                      </td>
                       <td style={styles.td}>
                         <div style={{ display: 'flex', gap: '6px' }}>
                           <button onClick={() => handleOpenEdit(item)} style={styles.editBtn}>Edit</button>
@@ -204,6 +261,8 @@ export default function PerluasanJaringan() {
             <form onSubmit={handleSubmit} style={styles.form}>
               <div style={styles.formGrid}>
                 <FormField label="Nadin / NPS *" name="nadinNps" value={form.nadinNps} onChange={handleChange} placeholder="Masukkan Nadin / NPS" required />
+                <FormField label="Nama Pelanggan" name="namaPelanggan" value={form.namaPelanggan} onChange={handleChange} placeholder="Nama pelanggan" />
+                <FormField label="ID Pelanggan" name="idPelanggan" value={form.idPelanggan} onChange={handleChange} placeholder="ID pelanggan" />
                 <FormField label="Kontrak" name="kontrak" value={form.kontrak} onChange={handleChange} placeholder="Nomor kontrak" />
                 <FormField label="Vendor" name="vendor" value={form.vendor} onChange={handleChange} placeholder="Nama vendor" />
                 <div style={styles.formGroup}>
@@ -223,6 +282,23 @@ export default function PerluasanJaringan() {
               <div style={styles.formGroup}>
                 <label style={styles.label}>Keterangan</label>
                 <textarea name="keterangan" value={form.keterangan} onChange={handleChange} placeholder="Keterangan tambahan..." rows={3} style={{ ...styles.input, resize: 'vertical' }} />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Upload Dokumen (Foto/PDF, maks 500KB)</label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,application/pdf"
+                  onChange={handleFileChange}
+                  style={styles.input}
+                />
+                {form.fileName && (
+                  <div style={styles.filePreview}>
+                    {form.fileType?.includes('image') && (
+                      <img src={form.fileBase64} alt="preview" style={{ maxHeight: '120px', borderRadius: '6px', marginTop: '8px' }} />
+                    )}
+                    <span style={{ fontSize: '12px', color: '#555', marginTop: '4px' }}>{form.fileName}</span>
+                  </div>
+                )}
               </div>
               <div style={styles.modalFooter}>
                 <button type="button" onClick={handleCloseModal} style={styles.cancelBtn}>Batal</button>
@@ -473,6 +549,23 @@ const styles = {
   input: { padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #e0e0e0', fontSize: '14px', outline: 'none', width: '100%' },
   select: { padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #e0e0e0', fontSize: '14px', outline: 'none', backgroundColor: 'white', cursor: 'pointer' },
   modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' },
+  docBtn: {
+    display: 'inline-block',
+    padding: '3px 10px',
+    borderRadius: '6px',
+    backgroundColor: '#e8edf7',
+    color: '#002060',
+    fontSize: '11px',
+    fontWeight: '700',
+    textDecoration: 'none',
+    border: '1px solid #c0cce0',
+  },
+  filePreview: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    marginTop: '4px',
+  },
   cancelBtn: { padding: '10px 20px', borderRadius: '8px', border: '1.5px solid #ddd', backgroundColor: 'white', color: '#555', cursor: 'pointer', fontSize: '14px', fontWeight: '600' },
   submitBtn: { padding: '10px 24px', borderRadius: '8px', border: 'none', backgroundColor: '#002060', color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: '600' },
   confirmModal: {
