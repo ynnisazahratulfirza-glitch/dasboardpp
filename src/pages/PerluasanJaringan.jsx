@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { db, storage } from '../firebase.js'
+import { db } from '../firebase.js'
 import {
   collection,
   addDoc,
@@ -11,12 +11,6 @@ import {
   query,
   orderBy,
 } from 'firebase/firestore'
-import {
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-} from 'firebase/storage'
 import toast from 'react-hot-toast'
 
 const emptyForm = {
@@ -31,6 +25,39 @@ const emptyForm = {
   keterangan: '',
 }
 
+// Kompres gambar sebelum simpan ke base64
+function compressImage(file, maxWidthPx = 1200, quality = 0.75) {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let w = img.width
+        let h = img.height
+        if (w > maxWidthPx) {
+          h = Math.round((h * maxWidthPx) / w)
+          w = maxWidthPx
+        }
+        canvas.width = w
+        canvas.height = h
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+        resolve({ base64: canvas.toDataURL('image/jpeg', quality), type: 'image/jpeg' })
+      }
+      img.src = e.target.result
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = (e) => resolve({ base64: e.target.result, type: file.type })
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function PerluasanJaringan() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
@@ -42,9 +69,9 @@ export default function PerluasanJaringan() {
   const [hapusSemuaConfirm, setHapusSemuaConfirm] = useState(false)
   const [previewDoc, setPreviewDoc] = useState(null)
   // multi-file states
-  const [selectedFiles, setSelectedFiles] = useState([]) // File objects baru
-  const [existingFiles, setExistingFiles] = useState([]) // { url, name, type, path }
-  const [uploadProgress, setUploadProgress] = useState({}) // { fileName: pct }
+  const [selectedFiles, setSelectedFiles] = useState([]) // { name, type, base64 }
+  const [existingFiles, setExistingFiles] = useState([]) // { name, type, base64 }
+  const [processing, setProcessing] = useState(false)
   const fileInputRef = useRef(null)
 
   const loadData = async () => {
@@ -67,7 +94,6 @@ export default function PerluasanJaringan() {
     setEditId(null)
     setSelectedFiles([])
     setExistingFiles([])
-    setUploadProgress({})
     setShowModal(true)
   }
 
@@ -85,7 +111,6 @@ export default function PerluasanJaringan() {
     })
     setExistingFiles(item.files || [])
     setSelectedFiles([])
-    setUploadProgress({})
     setEditId(item.id)
     setShowModal(true)
   }
@@ -96,81 +121,59 @@ export default function PerluasanJaringan() {
     setForm(emptyForm)
     setSelectedFiles([])
     setExistingFiles([])
-    setUploadProgress({})
   }
 
   const handleChange = (e) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files)
     if (files.length === 0) return
-    setSelectedFiles((prev) => {
-      const existing = new Set(prev.map((f) => f.name + f.size))
-      const newFiles = files.filter((f) => !existing.has(f.name + f.size))
-      return [...prev, ...newFiles]
-    })
+    setProcessing(true)
+    try {
+      const results = []
+      for (const file of files) {
+        // Cek duplikat
+        const isDup = selectedFiles.some((f) => f.name === file.name && f.size === file.size)
+        if (isDup) continue
+        let base64, type
+        if (file.type.startsWith('image/')) {
+          const compressed = await compressImage(file)
+          base64 = compressed.base64
+          type = compressed.type
+        } else {
+          // PDF — cek ukuran max 800KB
+          if (file.size > 800 * 1024) {
+            toast.error(`${file.name}: PDF terlalu besar (maks 800KB)`)
+            continue
+          }
+          const result = await readFileAsBase64(file)
+          base64 = result.base64
+          type = result.type
+        }
+        results.push({ name: file.name, type, base64, size: file.size })
+      }
+      setSelectedFiles((prev) => [...prev, ...results])
+    } catch (err) {
+      toast.error('Gagal memproses file: ' + err.message)
+    }
+    setProcessing(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const removeSelectedFile = (index) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const removeExistingFile = (index) => {
-    setExistingFiles((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const uploadFiles = async (docId) => {
-    if (selectedFiles.length === 0) return []
-    const uploaded = []
-    for (const file of selectedFiles) {
-      const filePath = `perluasan_jaringan/${docId}/${Date.now()}_${file.name}`
-      const storageRef = ref(storage, filePath)
-      await new Promise((resolve, reject) => {
-        const task = uploadBytesResumable(storageRef, file)
-        task.on('state_changed',
-          (snap) => {
-            const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100)
-            setUploadProgress((prev) => ({ ...prev, [file.name]: pct }))
-          },
-          (err) => reject(err),
-          async () => {
-            const url = await getDownloadURL(task.snapshot.ref)
-            uploaded.push({ url, name: file.name, type: file.type, path: filePath })
-            resolve()
-          }
-        )
-      })
-    }
-    return uploaded
-  }
+  const removeSelectedFile = (index) => setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
+  const removeExistingFile = (index) => setExistingFiles((prev) => prev.filter((_, i) => i !== index))
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.nadinNps.trim()) { toast.error('Nodin / Nota Dinas harus diisi!'); return }
     setSubmitting(true)
     try {
+      const allFiles = [...existingFiles, ...selectedFiles.map((f) => ({ name: f.name, type: f.type, base64: f.base64 }))]
       if (editId) {
-        // Upload file baru
-        const newUploaded = await uploadFiles(editId)
-        const allFiles = [...existingFiles, ...newUploaded]
-        await updateDoc(doc(db, 'perluasan_jaringan', editId), {
-          ...form,
-          files: allFiles,
-          updatedAt: new Date().toISOString(),
-        })
+        await updateDoc(doc(db, 'perluasan_jaringan', editId), { ...form, files: allFiles, updatedAt: new Date().toISOString() })
         toast.success('Data berhasil diperbarui!')
       } else {
-        // Buat dokumen dulu untuk dapat ID
-        const docRef = await addDoc(collection(db, 'perluasan_jaringan'), {
-          ...form,
-          files: [],
-          createdAt: new Date().toISOString(),
-        })
-        const uploaded = await uploadFiles(docRef.id)
-        if (uploaded.length > 0) {
-          await updateDoc(doc(db, 'perluasan_jaringan', docRef.id), { files: uploaded })
-        }
+        await addDoc(collection(db, 'perluasan_jaringan'), { ...form, files: allFiles, createdAt: new Date().toISOString() })
         toast.success('Data berhasil ditambahkan!')
       }
       handleCloseModal()
@@ -183,13 +186,6 @@ export default function PerluasanJaringan() {
 
   const handleDelete = async (id) => {
     try {
-      // Hapus file dari Storage juga
-      const item = data.find((d) => d.id === id)
-      if (item?.files?.length > 0) {
-        await Promise.all(
-          item.files.map((f) => f.path ? deleteObject(ref(storage, f.path)).catch(() => {}) : Promise.resolve())
-        )
-      }
       await deleteDoc(doc(db, 'perluasan_jaringan', id))
       toast.success('Data berhasil dihapus!')
       setDeleteConfirm(null)
@@ -202,13 +198,7 @@ export default function PerluasanJaringan() {
   const handleHapusSemua = async () => {
     try {
       const existingDocs = await getDocs(collection(db, 'perluasan_jaringan'))
-      await Promise.all(existingDocs.docs.map(async (d) => {
-        const item = d.data()
-        if (item.files?.length > 0) {
-          await Promise.all(item.files.map((f) => f.path ? deleteObject(ref(storage, f.path)).catch(() => {}) : Promise.resolve()))
-        }
-        return deleteDoc(doc(db, 'perluasan_jaringan', d.id))
-      }))
+      await Promise.all(existingDocs.docs.map((d) => deleteDoc(doc(db, 'perluasan_jaringan', d.id))))
       toast.success('Semua data berhasil dihapus!')
       setData([])
     } catch (err) {
@@ -256,7 +246,7 @@ export default function PerluasanJaringan() {
   const totalProses = data.filter((d) => String(d.progres).toLowerCase().includes('proses') || String(d.progres).toLowerCase().includes('progress')).length
   const totalBelum = data.filter((d) => String(d.progres).toLowerCase().includes('belum') || String(d.progres).toLowerCase().includes('pending')).length
 
-  const isUploading = Object.keys(uploadProgress).length > 0 && Object.values(uploadProgress).some((p) => p < 100)
+  const isUploading = false
 
   return (
     <div>
@@ -350,7 +340,7 @@ export default function PerluasanJaringan() {
                             {files.map((f, fi) => (
                               <button
                                 key={fi}
-                                onClick={() => setPreviewDoc({ url: f.url, name: f.name, type: f.type })}
+                                onClick={() => setPreviewDoc({ url: f.base64, name: f.name, type: f.type })}
                                 style={styles.docBtn}
                               >
                                 {f.type?.includes('pdf') ? 'PDF' : `Foto`}{files.length > 1 ? ` ${fi + 1}` : ''}
@@ -442,7 +432,7 @@ export default function PerluasanJaringan() {
               <div style={styles.formGroup}>
                 <label style={styles.label}>
                   Dokumen
-                  <span style={styles.labelHint}>Foto / PDF — bisa pilih banyak file sekaligus</span>
+                  <span style={styles.labelHint}>Foto (dikompres otomatis) / PDF maks 800KB</span>
                 </label>
 
                 {/* File yang sudah ada (edit mode) */}
@@ -467,14 +457,7 @@ export default function PerluasanJaringan() {
                       <div key={i} style={styles.fileItem}>
                         <div style={styles.fileItemIcon}>{f.type?.includes('pdf') ? 'PDF' : 'IMG'}</div>
                         <span style={styles.fileItemName}>{f.name}</span>
-                        {uploadProgress[f.name] !== undefined && uploadProgress[f.name] < 100 ? (
-                          <div style={styles.progressBarWrap}>
-                            <div style={{ ...styles.progressBarFill, width: `${uploadProgress[f.name]}%` }} />
-                            <span style={styles.progressPct}>{uploadProgress[f.name]}%</span>
-                          </div>
-                        ) : (
-                          <button type="button" onClick={() => removeSelectedFile(i)} style={styles.fileItemRemove}>Hapus</button>
-                        )}
+                        <button type="button" onClick={() => removeSelectedFile(i)} style={styles.fileItemRemove}>Hapus</button>
                       </div>
                     ))}
                   </div>
@@ -506,8 +489,8 @@ export default function PerluasanJaringan() {
 
               <div style={styles.modalFooter}>
                 <button type="button" onClick={handleCloseModal} style={styles.cancelBtn}>Batal</button>
-                <button type="submit" disabled={submitting || isUploading} style={styles.submitBtn}>
-                  {submitting ? 'Menyimpan...' : isUploading ? 'Mengupload...' : editId ? 'Simpan Perubahan' : 'Tambah Data'}
+                <button type="submit" disabled={submitting || processing} style={styles.submitBtn}>
+                  {processing ? 'Memproses file...' : submitting ? 'Menyimpan...' : editId ? 'Simpan Perubahan' : 'Tambah Data'}
                 </button>
               </div>
             </form>
@@ -555,7 +538,7 @@ export default function PerluasanJaringan() {
                 <div style={styles.previewSub}>{previewDoc.type?.includes('pdf') ? 'PDF Document' : 'Gambar'}</div>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <a href={previewDoc.url} target="_blank" rel="noopener noreferrer" download={previewDoc.name} style={styles.downloadBtn}>Download</a>
+                <a href={previewDoc.url} download={previewDoc.name} style={styles.downloadBtn}>Download</a>
                 <button onClick={() => setPreviewDoc(null)} style={styles.previewCloseBtn}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -664,9 +647,6 @@ const styles = {
   fileItemIcon: { width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#e8edf7', color: '#002060', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '800', flexShrink: 0 },
   fileItemName: { flex: 1, fontSize: '12px', color: '#333', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   fileItemRemove: { padding: '3px 10px', borderRadius: '6px', border: '1px solid #f5c0c0', backgroundColor: '#fde8e8', color: '#c0392b', fontSize: '11px', fontWeight: '600', cursor: 'pointer', flexShrink: 0 },
-  progressBarWrap: { position: 'relative', width: '80px', height: '18px', backgroundColor: '#e8eaf0', borderRadius: '9px', overflow: 'hidden', flexShrink: 0 },
-  progressBarFill: { height: '100%', backgroundColor: '#002060', borderRadius: '9px', transition: 'width 0.2s' },
-  progressPct: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700', color: 'white' },
   uploadArea: { display: 'block', border: '2px dashed #c8d0e0', borderRadius: '12px', padding: '16px', cursor: 'pointer', backgroundColor: '#f8fafd', textAlign: 'center', marginTop: '4px' },
   uploadPlaceholder: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' },
   uploadPlaceholderIcon: { marginBottom: '2px' },
