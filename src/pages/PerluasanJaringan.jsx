@@ -36,6 +36,7 @@ export default function PerluasanJaringan() {
   const [submitting, setSubmitting] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [hapusSemuaConfirm, setHapusSemuaConfirm] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState(null) // { fileBase64, fileName, fileType }
 
   const loadData = async () => {
     setLoading(true)
@@ -241,13 +242,12 @@ export default function PerluasanJaringan() {
                       <td style={{ ...styles.td, maxWidth: '160px', fontSize: '12px', color: '#777' }}>{item.keterangan || '-'}</td>
                       <td style={styles.td}>
                         {item.fileBase64 ? (
-                          <a
-                            href={item.fileBase64}
-                            download={item.fileName || 'dokumen'}
+                          <button
+                            onClick={() => setPreviewDoc({ fileBase64: item.fileBase64, fileName: item.fileName, fileType: item.fileType })}
                             style={styles.docBtn}
                           >
                             {item.fileType?.includes('pdf') ? 'PDF' : 'Foto'}
-                          </a>
+                          </button>
                         ) : (
                           <span style={{ color: '#ccc', fontSize: '12px' }}>-</span>
                         )}
@@ -271,24 +271,60 @@ export default function PerluasanJaringan() {
       {showModal && (
         <div style={styles.overlay}>
           <div style={styles.modal}>
+            {/* Modal Header dengan gradient */}
             <div style={styles.modalHeader}>
-              <div>
-                <h2 style={styles.modalTitle}>{editId ? 'Edit Data' : 'Tambah Perluasan Jaringan'}</h2>
-                <p style={styles.modalSub}>Lengkapi semua informasi yang diperlukan</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={styles.modalHeaderIcon}>
+                  {editId ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19"/>
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <h2 style={styles.modalTitle}>{editId ? 'Edit Data' : 'Tambah Perluasan Jaringan'}</h2>
+                  <p style={styles.modalSub}>{editId ? 'Perbarui informasi data perluasan jaringan' : 'Isi form berikut untuk menambahkan data baru'}</p>
+                </div>
               </div>
-              <button onClick={handleCloseModal} style={styles.closeBtn}>Tutup</button>
+              <button onClick={handleCloseModal} style={styles.closeBtn} title="Tutup">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
             </div>
+
             <form onSubmit={handleSubmit} style={styles.form}>
+              {/* Section: Identitas */}
+              <div style={styles.sectionLabel}>
+                <span style={styles.sectionDot} />
+                Identitas
+              </div>
               <div style={styles.formGrid}>
-                <FormField label="Nadin / NPS *" name="nadinNps" value={form.nadinNps} onChange={handleChange} placeholder="Masukkan Nadin / NPS" required />
-                <FormField label="Nama Pelanggan" name="namaPelanggan" value={form.namaPelanggan} onChange={handleChange} placeholder="Nama pelanggan" />
-                <FormField label="ID Pelanggan" name="idPelanggan" value={form.idPelanggan} onChange={handleChange} placeholder="ID pelanggan" />
+                <FormField label="Nadin / NPS" required name="nadinNps" value={form.nadinNps} onChange={handleChange} placeholder="Contoh: NPS-001" />
+                <FormField label="Nama Pelanggan" name="namaPelanggan" value={form.namaPelanggan} onChange={handleChange} placeholder="Nama lengkap pelanggan" />
+                <FormField label="ID Pelanggan" name="idPelanggan" value={form.idPelanggan} onChange={handleChange} placeholder="Contoh: 5210xxxxxxxx" />
+                <FormField label="No. Agenda" name="noAgenda" value={form.noAgenda} onChange={handleChange} placeholder="Nomor agenda" />
+              </div>
+
+              {/* Section: Pekerjaan */}
+              <div style={styles.sectionLabel}>
+                <span style={styles.sectionDot} />
+                Pekerjaan
+              </div>
+              <div style={styles.formGrid}>
                 <FormField label="Kontrak" name="kontrak" value={form.kontrak} onChange={handleChange} placeholder="Nomor kontrak" />
                 <FormField label="Vendor" name="vendor" value={form.vendor} onChange={handleChange} placeholder="Nama vendor" />
                 <div style={styles.formGroup}>
                   <label style={styles.label}>Progres</label>
                   <select name="progres" value={form.progres} onChange={handleChange} style={styles.select}>
-                    <option value="">-- Pilih Progres --</option>
+                    <option value="">-- Pilih Status Progres --</option>
                     <option value="Belum Mulai">Belum Mulai</option>
                     <option value="Dalam Proses">Dalam Proses</option>
                     <option value="On Progress">On Progress</option>
@@ -296,30 +332,64 @@ export default function PerluasanJaringan() {
                     <option value="Pending">Pending</option>
                   </select>
                 </div>
-                <FormField label="No. Agenda" name="noAgenda" value={form.noAgenda} onChange={handleChange} placeholder="Nomor agenda" />
                 <FormField label="Tanggal Bayar" name="tanggalBayar" value={form.tanggalBayar} onChange={handleChange} type="date" />
               </div>
-              <div style={styles.formGroup}>
+
+              {/* Keterangan full width */}
+              <div style={{ ...styles.formGroup, marginBottom: '20px' }}>
                 <label style={styles.label}>Keterangan</label>
-                <textarea name="keterangan" value={form.keterangan} onChange={handleChange} placeholder="Keterangan tambahan..." rows={3} style={{ ...styles.input, resize: 'vertical' }} />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Upload Dokumen (Foto/PDF, maks 500KB)</label>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png,application/pdf"
-                  onChange={handleFileChange}
-                  style={styles.input}
+                <textarea
+                  name="keterangan"
+                  value={form.keterangan}
+                  onChange={handleChange}
+                  placeholder="Tuliskan keterangan atau catatan tambahan..."
+                  rows={3}
+                  style={styles.textarea}
                 />
-                {form.fileName && (
-                  <div style={styles.filePreview}>
-                    {form.fileType?.includes('image') && (
-                      <img src={form.fileBase64} alt="preview" style={{ maxHeight: '120px', borderRadius: '6px', marginTop: '8px' }} />
-                    )}
-                    <span style={{ fontSize: '12px', color: '#555', marginTop: '4px' }}>{form.fileName}</span>
-                  </div>
-                )}
               </div>
+
+              {/* Upload Dokumen */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Upload Dokumen
+                  <span style={styles.labelHint}>Foto / PDF · maks 500KB</span>
+                </label>
+                <label style={styles.uploadArea}>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,application/pdf"
+                    onChange={handleFileChange}
+                    style={{ display: 'none' }}
+                  />
+                  {form.fileName ? (
+                    <div style={styles.uploadPreview}>
+                      {form.fileType?.includes('image') ? (
+                        <img src={form.fileBase64} alt="preview" style={styles.uploadPreviewImg} />
+                      ) : (
+                        <div style={styles.pdfIcon}>PDF</div>
+                      )}
+                      <div style={styles.uploadPreviewInfo}>
+                        <span style={styles.uploadFileName}>{form.fileName}</span>
+                        <span style={styles.uploadChangeHint}>Klik untuk ganti file</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={styles.uploadPlaceholder}>
+                      <div style={styles.uploadPlaceholderIcon}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#aab" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                          <polyline points="17 8 12 3 7 8"/>
+                          <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                      </div>
+                      <div style={styles.uploadPlaceholderText}>Klik untuk upload dokumen</div>
+                      <div style={styles.uploadPlaceholderHint}>JPG, PNG, PDF — maks 500KB</div>
+                    </div>
+                  )}
+                </label>
+              </div>
+
+              {/* Footer */}
               <div style={styles.modalFooter}>
                 <button type="button" onClick={handleCloseModal} style={styles.cancelBtn}>Batal</button>
                 <button type="submit" disabled={submitting} style={styles.submitBtn}>
@@ -360,6 +430,56 @@ export default function PerluasanJaringan() {
           </div>
         </div>
       )}
+
+      {/* Preview Dokumen */}
+      {previewDoc && (
+        <div style={styles.overlay} onClick={() => setPreviewDoc(null)}>
+          <div style={styles.previewModal} onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div style={styles.previewHeader}>
+              <div>
+                <div style={styles.previewTitle}>{previewDoc.fileName || 'Dokumen'}</div>
+                <div style={styles.previewSub}>{previewDoc.fileType?.includes('pdf') ? 'PDF Document' : 'Gambar'}</div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <a
+                  href={previewDoc.fileBase64}
+                  download={previewDoc.fileName || 'dokumen'}
+                  style={styles.downloadBtn}
+                >
+                  Download
+                </a>
+                <button onClick={() => setPreviewDoc(null)} style={styles.previewCloseBtn}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            {/* Content */}
+            <div style={styles.previewContent}>
+              {previewDoc.fileType?.includes('image') ? (
+                <img
+                  src={previewDoc.fileBase64}
+                  alt={previewDoc.fileName}
+                  style={styles.previewImg}
+                />
+              ) : previewDoc.fileType?.includes('pdf') ? (
+                <iframe
+                  src={previewDoc.fileBase64}
+                  title={previewDoc.fileName}
+                  style={styles.previewPdf}
+                />
+              ) : (
+                <div style={styles.previewUnsupported}>
+                  Format file tidak dapat ditampilkan. Silakan download untuk membuka.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -382,8 +502,19 @@ function SummaryCard({ label, value, inisial, color, bgColor, sub }) {
 function FormField({ label, name, value, onChange, placeholder, type = 'text', required }) {
   return (
     <div style={styles.formGroup}>
-      <label style={styles.label}>{label}</label>
-      <input type={type} name={name} value={value} onChange={onChange} placeholder={placeholder} required={required} style={styles.input} />
+      <label style={styles.label}>
+        {label}
+        {required && <span style={{ color: '#e53935', marginLeft: '2px' }}>*</span>}
+      </label>
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        required={required}
+        style={styles.input}
+      />
     </div>
   )
 }
@@ -548,71 +679,221 @@ const styles = {
   overlay: {
     position: 'fixed',
     inset: 0,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,20,60,0.55)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
     padding: '16px',
+    backdropFilter: 'blur(2px)',
   },
   modal: {
     backgroundColor: 'white',
-    borderRadius: '16px',
+    borderRadius: '20px',
     width: '100%',
-    maxWidth: '680px',
-    maxHeight: '90vh',
+    maxWidth: '700px',
+    maxHeight: '92vh',
     overflowY: 'auto',
-    boxShadow: '0 24px 64px rgba(0,0,0,0.2)',
+    boxShadow: '0 32px 80px rgba(0,20,80,0.25)',
   },
   modalHeader: {
-    padding: '20px 24px',
-    borderBottom: '1px solid #f0f0f0',
+    padding: '22px 28px',
+    borderBottom: '1px solid #eef0f6',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     position: 'sticky',
     top: 0,
     backgroundColor: 'white',
-    borderRadius: '16px 16px 0 0',
+    borderRadius: '20px 20px 0 0',
+    background: 'linear-gradient(135deg, #002060 0%, #0050a0 100%)',
   },
-  modalTitle: { fontSize: '18px', fontWeight: '800', color: '#002060', margin: 0 },
-  modalSub: { fontSize: '12px', color: '#aaa', marginTop: '2px' },
+  modalHeaderIcon: {
+    width: '44px',
+    height: '44px',
+    borderRadius: '12px',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '20px',
+    flexShrink: 0,
+  },
+  modalTitle: { fontSize: '18px', fontWeight: '800', color: 'white', margin: 0 },
+  modalSub: { fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginTop: '2px', marginBottom: 0 },
   closeBtn: {
-    background: 'none',
-    border: '1.5px solid #ddd',
-    fontSize: '13px',
+    width: '36px',
+    height: '36px',
+    borderRadius: '10px',
+    border: 'none',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    color: 'white',
+    fontSize: '16px',
     cursor: 'pointer',
-    color: '#666',
-    padding: '6px 12px',
-    borderRadius: '8px',
-    fontWeight: '600',
-  },
-  form: { padding: '24px' },
-  formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' },
-  formGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
-  label: { fontSize: '13px', fontWeight: '600', color: '#444' },
-  input: { padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #e0e0e0', fontSize: '14px', outline: 'none', width: '100%' },
-  select: { padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #e0e0e0', fontSize: '14px', outline: 'none', backgroundColor: 'white', cursor: 'pointer' },
-  modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' },
-  docBtn: {
-    display: 'inline-block',
-    padding: '3px 10px',
-    borderRadius: '6px',
-    backgroundColor: '#e8edf7',
-    color: '#002060',
-    fontSize: '11px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     fontWeight: '700',
-    textDecoration: 'none',
-    border: '1px solid #c0cce0',
+    flexShrink: 0,
   },
-  filePreview: {
+  form: { padding: '24px 28px' },
+  sectionLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '11px',
+    fontWeight: '800',
+    color: '#002060',
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+    marginBottom: '14px',
+    marginTop: '4px',
+  },
+  sectionDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    backgroundColor: '#002060',
+    flexShrink: 0,
+  },
+  formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' },
+  formGroup: { display: 'flex', flexDirection: 'column', gap: '7px' },
+  label: {
+    fontSize: '12px',
+    fontWeight: '700',
+    color: '#555',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+  },
+  labelHint: {
+    marginLeft: 'auto',
+    fontSize: '11px',
+    fontWeight: '500',
+    color: '#aaa',
+  },
+  input: {
+    padding: '11px 14px',
+    borderRadius: '10px',
+    border: '1.5px solid #e8eaf0',
+    fontSize: '13.5px',
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
+    backgroundColor: '#fafbfd',
+    color: '#222',
+    transition: 'border-color 0.2s',
+  },
+  selectWrapper: { position: 'relative' },
+  select: {
+    padding: '11px 14px',
+    borderRadius: '10px',
+    border: '1.5px solid #e8eaf0',
+    fontSize: '13.5px',
+    outline: 'none',
+    backgroundColor: '#fafbfd',
+    cursor: 'pointer',
+    width: '100%',
+    appearance: 'auto',
+    color: '#222',
+  },
+  textarea: {
+    padding: '11px 14px',
+    borderRadius: '10px',
+    border: '1.5px solid #e8eaf0',
+    fontSize: '13.5px',
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
+    backgroundColor: '#fafbfd',
+    color: '#222',
+    resize: 'vertical',
+    fontFamily: 'inherit',
+    lineHeight: '1.5',
+  },
+  uploadArea: {
+    display: 'block',
+    border: '2px dashed #c8d0e0',
+    borderRadius: '12px',
+    padding: '20px',
+    cursor: 'pointer',
+    backgroundColor: '#f8fafd',
+    transition: 'border-color 0.2s',
+    textAlign: 'center',
+  },
+  uploadPlaceholder: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  uploadPlaceholderIcon: { fontSize: '28px' },
+  uploadPlaceholderText: { fontSize: '13px', fontWeight: '600', color: '#555' },
+  uploadPlaceholderHint: { fontSize: '11px', color: '#aaa' },
+  uploadPreview: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    textAlign: 'left',
+  },
+  uploadPreviewImg: {
+    maxHeight: '60px',
+    maxWidth: '80px',
+    borderRadius: '8px',
+    objectFit: 'cover',
+    border: '1px solid #e0e0e0',
+    flexShrink: 0,
+  },
+  pdfIcon: {
+    width: '50px',
+    height: '60px',
+    borderRadius: '8px',
+    backgroundColor: '#fde8e8',
+    color: '#c0392b',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '11px',
+    fontWeight: '800',
+    flexShrink: 0,
+    border: '1px solid #f5c0c0',
+  },
+  uploadPreviewInfo: {
     display: 'flex',
     flexDirection: 'column',
     gap: '4px',
-    marginTop: '4px',
   },
-  cancelBtn: { padding: '10px 20px', borderRadius: '8px', border: '1.5px solid #ddd', backgroundColor: 'white', color: '#555', cursor: 'pointer', fontSize: '14px', fontWeight: '600' },
-  submitBtn: { padding: '10px 24px', borderRadius: '8px', border: 'none', backgroundColor: '#002060', color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: '600' },
+  uploadFileName: { fontSize: '13px', fontWeight: '600', color: '#333' },
+  uploadChangeHint: { fontSize: '11px', color: '#aaa' },
+  modalFooter: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '12px',
+    marginTop: '24px',
+    paddingTop: '18px',
+    borderTop: '1px solid #f0f0f0',
+  },
+  cancelBtn: {
+    padding: '11px 22px',
+    borderRadius: '10px',
+    border: '1.5px solid #e0e0e0',
+    backgroundColor: 'white',
+    color: '#666',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+  },
+  submitBtn: {
+    padding: '11px 26px',
+    borderRadius: '10px',
+    border: 'none',
+    background: 'linear-gradient(135deg, #002060, #0050a0)',
+    color: 'white',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '700',
+    boxShadow: '0 4px 14px rgba(0,32,96,0.3)',
+  },
   confirmModal: {
     backgroundColor: 'white',
     borderRadius: '16px',
@@ -639,4 +920,97 @@ const styles = {
   confirmText: { fontSize: '14px', color: '#999', marginBottom: '24px' },
   confirmActions: { display: 'flex', gap: '12px', justifyContent: 'center' },
   deleteConfirmBtn: { padding: '10px 24px', borderRadius: '8px', border: 'none', backgroundColor: '#c0392b', color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: '600' },
+  docBtn: {
+    display: 'inline-block',
+    padding: '3px 10px',
+    borderRadius: '6px',
+    backgroundColor: '#e8edf7',
+    color: '#002060',
+    fontSize: '11px',
+    fontWeight: '700',
+    textDecoration: 'none',
+    border: '1px solid #c0cce0',
+    cursor: 'pointer',
+  },
+  previewModal: {
+    backgroundColor: 'white',
+    borderRadius: '16px',
+    width: '100%',
+    maxWidth: '800px',
+    maxHeight: '92vh',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 32px 80px rgba(0,20,80,0.25)',
+    overflow: 'hidden',
+  },
+  previewHeader: {
+    padding: '16px 20px',
+    borderBottom: '1px solid #f0f0f0',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  previewTitle: {
+    fontSize: '15px',
+    fontWeight: '700',
+    color: '#222',
+  },
+  previewSub: {
+    fontSize: '12px',
+    color: '#aaa',
+    marginTop: '2px',
+  },
+  downloadBtn: {
+    padding: '8px 18px',
+    borderRadius: '8px',
+    backgroundColor: '#002060',
+    color: 'white',
+    fontSize: '13px',
+    fontWeight: '600',
+    textDecoration: 'none',
+    border: 'none',
+    cursor: 'pointer',
+  },
+  previewCloseBtn: {
+    width: '34px',
+    height: '34px',
+    borderRadius: '8px',
+    border: '1.5px solid #e0e0e0',
+    backgroundColor: 'white',
+    color: '#666',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewContent: {
+    flex: 1,
+    overflow: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f4f6fa',
+    padding: '20px',
+    minHeight: '300px',
+  },
+  previewImg: {
+    maxWidth: '100%',
+    maxHeight: '70vh',
+    borderRadius: '8px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+    objectFit: 'contain',
+  },
+  previewPdf: {
+    width: '100%',
+    height: '70vh',
+    border: 'none',
+    borderRadius: '4px',
+  },
+  previewUnsupported: {
+    color: '#999',
+    fontSize: '14px',
+    textAlign: 'center',
+    padding: '40px',
+  },
 }
