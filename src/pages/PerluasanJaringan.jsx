@@ -17,12 +17,27 @@ const emptyForm = {
   nadinNps: '',
   namaPelanggan: '',
   idPelanggan: '',
+  jenisTransaksi: '',
   kontrak: '',
   vendor: '',
-  progres: '',
+  status: '',
   noAgenda: '',
   tanggalBayar: '',
+  dayaLama: '',
+  dayaBaru: '',
   keterangan: '',
+}
+
+// Hitung hari layanan dari tanggalBayar sampai hari ini
+function hitungHariLayanan(tanggalBayar) {
+  if (!tanggalBayar) return null
+  const bayar = new Date(tanggalBayar)
+  if (isNaN(bayar)) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  bayar.setHours(0, 0, 0, 0)
+  const diff = Math.floor((today - bayar) / (1000 * 60 * 60 * 24))
+  return diff >= 0 ? diff : null
 }
 
 // Kompres gambar sebelum simpan ke base64
@@ -102,11 +117,14 @@ export default function PerluasanJaringan() {
       nadinNps: item.nadinNps || '',
       namaPelanggan: item.namaPelanggan || '',
       idPelanggan: item.idPelanggan || '',
+      jenisTransaksi: item.jenisTransaksi || '',
       kontrak: item.kontrak || '',
       vendor: item.vendor || '',
-      progres: item.progres || '',
+      status: item.status || item.progres || '',
       noAgenda: item.noAgenda || '',
       tanggalBayar: item.tanggalBayar || '',
+      dayaLama: item.dayaLama || '',
+      dayaBaru: item.dayaBaru || '',
       keterangan: item.keterangan || '',
     })
     setExistingFiles(item.files || [])
@@ -214,11 +232,15 @@ export default function PerluasanJaringan() {
       'Nodin / Nota Dinas': item.nadinNps || '',
       'Nama Pelanggan': item.namaPelanggan || '',
       'ID Pelanggan': item.idPelanggan || '',
+      'Jenis Transaksi': item.jenisTransaksi || '',
       'Kontrak': item.kontrak || '',
       'Vendor': item.vendor || '',
-      'Progres': item.progres || '',
+      'Status': item.status || item.progres || '',
       'No. Agenda': item.noAgenda || '',
       'Tanggal Bayar': item.tanggalBayar || '',
+      'Hari Layanan': hitungHariLayanan(item.tanggalBayar) ?? '',
+      'Daya Lama': item.dayaLama || '',
+      'Daya Baru': item.dayaBaru || '',
       'Keterangan': item.keterangan || '',
       'Jumlah Dokumen': (item.files || []).length,
     }))
@@ -226,25 +248,26 @@ export default function PerluasanJaringan() {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Perluasan Jaringan')
     ws['!cols'] = [
-      { wch: 5 }, { wch: 22 }, { wch: 24 }, { wch: 18 },
-      { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 18 },
-      { wch: 16 }, { wch: 30 }, { wch: 12 },
+      { wch: 5 }, { wch: 22 }, { wch: 24 }, { wch: 18 }, { wch: 18 },
+      { wch: 18 }, { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 16 },
+      { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 12 },
     ]
     XLSX.writeFile(wb, `Perluasan_Jaringan_${new Date().toLocaleDateString('id-ID').replace(/\//g, '-')}.xlsx`)
     toast.success('Data berhasil diekspor ke Excel!')
   }
 
-  const getProgresConfig = (progres) => {
-    const p = String(progres).toLowerCase()
-    if (p.includes('selesai') || p.includes('done')) return { color: '#00873a', bg: '#d6f0e0', label: progres }
-    if (p.includes('proses') || p.includes('progress')) return { color: '#c47c00', bg: '#fef3d6', label: progres }
-    if (p.includes('belum') || p.includes('pending')) return { color: '#c45c00', bg: '#fde8d5', label: progres }
-    return { color: '#666', bg: '#f0f0f0', label: progres || '-' }
+  const getStatusConfig = (status) => {
+    const s = String(status).toLowerCase()
+    if (s.includes('selesai')) return { color: '#00873a', bg: '#d6f0e0', label: status }
+    if (s.includes('pekerjaan')) return { color: '#0070c0', bg: '#dceefb', label: status }
+    if (s.includes('kontrak')) return { color: '#c47c00', bg: '#fef3d6', label: status }
+    if (s.includes('pembayaran')) return { color: '#7b2fa0', bg: '#f3e6fc', label: status }
+    return { color: '#666', bg: '#f0f0f0', label: status || '-' }
   }
 
-  const totalSelesai = data.filter((d) => String(d.progres).toLowerCase().includes('selesai')).length
-  const totalProses = data.filter((d) => String(d.progres).toLowerCase().includes('proses') || String(d.progres).toLowerCase().includes('progress')).length
-  const totalBelum = data.filter((d) => String(d.progres).toLowerCase().includes('belum') || String(d.progres).toLowerCase().includes('pending')).length
+  const totalSelesai = data.filter((d) => String(d.status || d.progres || '').toLowerCase().includes('selesai')).length
+  const totalProses = data.filter((d) => String(d.status || d.progres || '').toLowerCase().includes('pekerjaan')).length
+  const totalBelum = data.filter((d) => String(d.status || d.progres || '').toLowerCase().includes('pembayaran') || String(d.status || d.progres || '').toLowerCase().includes('kontrak')).length
 
   const isUploading = false
 
@@ -272,8 +295,8 @@ export default function PerluasanJaringan() {
       <div style={styles.summaryGrid}>
         <SummaryCard label="Total Perluasan Jaringan" value={data.length} inisial="PJ" color="#002060" bgColor="#e8edf7" sub="Total semua data" />
         <SummaryCard label="Selesai" value={totalSelesai} inisial="OK" color="#00873a" bgColor="#d6f0e0" sub="Pekerjaan selesai" />
-        <SummaryCard label="Dalam Proses" value={totalProses} inisial="PR" color="#c47c00" bgColor="#fef3d6" sub="Sedang dikerjakan" />
-        <SummaryCard label="Belum Mulai" value={totalBelum} inisial="BM" color="#c45c00" bgColor="#fde8d5" sub="Menunggu pengerjaan" />
+        <SummaryCard label="Progres Pekerjaan" value={totalProses} inisial="PP" color="#0070c0" bgColor="#dceefb" sub="Sedang dikerjakan" />
+        <SummaryCard label="Pembayaran / Kontrak" value={totalBelum} inisial="PK" color="#7b2fa0" bgColor="#f3e6fc" sub="Tahap awal" />
       </div>
 
       {/* Table */}
@@ -299,11 +322,15 @@ export default function PerluasanJaringan() {
                   <th style={styles.th}>Nodin / Nota Dinas</th>
                   <th style={styles.th}>Nama Pelanggan</th>
                   <th style={styles.th}>ID Pelanggan</th>
+                  <th style={styles.th}>Jenis Transaksi</th>
                   <th style={styles.th}>Kontrak</th>
                   <th style={styles.th}>Vendor</th>
-                  <th style={styles.th}>Progres</th>
+                  <th style={styles.th}>Status</th>
                   <th style={styles.th}>No. Agenda</th>
                   <th style={styles.th}>Tanggal Bayar</th>
+                  <th style={styles.th}>Hari Layanan</th>
+                  <th style={styles.th}>Daya Lama</th>
+                  <th style={styles.th}>Daya Baru</th>
                   <th style={styles.th}>Keterangan</th>
                   <th style={styles.th}>Dokumen</th>
                   <th style={styles.th}>Aksi</th>
@@ -311,7 +338,8 @@ export default function PerluasanJaringan() {
               </thead>
               <tbody>
                 {data.map((item, idx) => {
-                  const pc = getProgresConfig(item.progres)
+                  const sc = getStatusConfig(item.status || item.progres)
+                  const hariLayanan = hitungHariLayanan(item.tanggalBayar)
                   const files = item.files || []
                   return (
                     <tr key={item.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
@@ -324,26 +352,38 @@ export default function PerluasanJaringan() {
                       </td>
                       <td style={styles.td}>{item.namaPelanggan || '-'}</td>
                       <td style={styles.td}><span style={styles.idBadge}>{item.idPelanggan || '-'}</span></td>
+                      <td style={styles.td}>
+                        {item.jenisTransaksi ? (
+                          <span style={{ backgroundColor: item.jenisTransaksi === 'Pasang Baru' ? '#dceefb' : '#d6f0e0', color: item.jenisTransaksi === 'Pasang Baru' ? '#0070c0' : '#00873a', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                            {item.jenisTransaksi}
+                          </span>
+                        ) : '-'}
+                      </td>
                       <td style={styles.td}>{item.kontrak || '-'}</td>
                       <td style={styles.td}>{item.vendor || '-'}</td>
                       <td style={styles.td}>
-                        <span style={{ backgroundColor: pc.bg, color: pc.color, padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700' }}>
-                          {pc.label}
+                        <span style={{ backgroundColor: sc.bg, color: sc.color, padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                          {sc.label}
                         </span>
                       </td>
                       <td style={styles.td}>{item.noAgenda || '-'}</td>
                       <td style={styles.td}>{item.tanggalBayar || '-'}</td>
+                      <td style={{ ...styles.td, textAlign: 'center' }}>
+                        {hariLayanan !== null ? (
+                          <span style={{ ...styles.hariLayananBadge, backgroundColor: hariLayanan > 90 ? '#fde8e8' : hariLayanan > 30 ? '#fef3d6' : '#d6f0e0', color: hariLayanan > 90 ? '#c0392b' : hariLayanan > 30 ? '#c47c00' : '#00873a' }}>
+                            {hariLayanan} hari
+                          </span>
+                        ) : '-'}
+                      </td>
+                      <td style={styles.td}>{item.dayaLama || '-'}</td>
+                      <td style={styles.td}>{item.dayaBaru || '-'}</td>
                       <td style={{ ...styles.td, maxWidth: '160px', fontSize: '12px', color: '#777' }}>{item.keterangan || '-'}</td>
                       <td style={styles.td}>
                         {files.length > 0 ? (
                           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                             {files.map((f, fi) => (
-                              <button
-                                key={fi}
-                                onClick={() => setPreviewDoc({ url: f.base64, name: f.name, type: f.type })}
-                                style={styles.docBtn}
-                              >
-                                {f.type?.includes('pdf') ? 'PDF' : `Foto`}{files.length > 1 ? ` ${fi + 1}` : ''}
+                              <button key={fi} onClick={() => setPreviewDoc({ url: f.base64, name: f.name, type: f.type })} style={styles.docBtn}>
+                                {f.type?.includes('pdf') ? 'PDF' : 'Foto'}{files.length > 1 ? ` ${fi + 1}` : ''}
                               </button>
                             ))}
                           </div>
@@ -405,22 +445,45 @@ export default function PerluasanJaringan() {
                 <FormField label="No. Agenda" name="noAgenda" value={form.noAgenda} onChange={handleChange} placeholder="Nomor agenda" />
               </div>
 
-              <div style={styles.sectionLabel}><span style={styles.sectionDot} />Pekerjaan</div>
+              <div style={styles.sectionLabel}><span style={styles.sectionDot} />Transaksi &amp; Daya</div>
               <div style={styles.formGrid}>
-                <FormField label="Kontrak" name="kontrak" value={form.kontrak} onChange={handleChange} placeholder="Nomor kontrak" />
-                <FormField label="Vendor" name="vendor" value={form.vendor} onChange={handleChange} placeholder="Nama vendor" />
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Progres</label>
-                  <select name="progres" value={form.progres} onChange={handleChange} style={styles.select}>
-                    <option value="">-- Pilih Status Progres --</option>
-                    <option value="Belum Mulai">Belum Mulai</option>
-                    <option value="Dalam Proses">Dalam Proses</option>
-                    <option value="On Progress">On Progress</option>
-                    <option value="Selesai">Selesai</option>
-                    <option value="Pending">Pending</option>
+                  <label style={styles.label}>Jenis Transaksi</label>
+                  <select name="jenisTransaksi" value={form.jenisTransaksi} onChange={handleChange} style={styles.select}>
+                    <option value="">-- Pilih Jenis Transaksi --</option>
+                    <option value="Pasang Baru">Pasang Baru</option>
+                    <option value="Perubahan Daya">Perubahan Daya</option>
                   </select>
                 </div>
-                <FormField label="Tanggal Bayar" name="tanggalBayar" value={form.tanggalBayar} onChange={handleChange} type="date" />
+                <FormField label="Kontrak" name="kontrak" value={form.kontrak} onChange={handleChange} placeholder="Nomor kontrak" />
+                <FormField label="Daya Lama (VA)" name="dayaLama" value={form.dayaLama} onChange={handleChange} placeholder="Contoh: 900" />
+                <FormField label="Daya Baru (VA)" name="dayaBaru" value={form.dayaBaru} onChange={handleChange} placeholder="Contoh: 1300" />
+              </div>
+
+              <div style={styles.sectionLabel}><span style={styles.sectionDot} />Pekerjaan</div>
+              <div style={styles.formGrid}>
+                <FormField label="Vendor" name="vendor" value={form.vendor} onChange={handleChange} placeholder="Nama vendor" />
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Status</label>
+                  <select name="status" value={form.status} onChange={handleChange} style={styles.select}>
+                    <option value="">-- Pilih Status --</option>
+                    <option value="Pembayaran">Pembayaran</option>
+                    <option value="Progres Kontrak">Progres Kontrak</option>
+                    <option value="Progres Pekerjaan">Progres Pekerjaan</option>
+                    <option value="Selesai">Selesai</option>
+                  </select>
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>
+                    Tanggal Bayar
+                    {form.tanggalBayar && (
+                      <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: '600', color: '#0070c0' }}>
+                        Hari layanan: {hitungHariLayanan(form.tanggalBayar) ?? 0} hari
+                      </span>
+                    )}
+                  </label>
+                  <input type="date" name="tanggalBayar" value={form.tanggalBayar} onChange={handleChange} style={styles.input} />
+                </div>
               </div>
 
               <div style={{ ...styles.formGroup, marginBottom: '20px' }}>
@@ -620,6 +683,7 @@ const styles = {
   editBtn: { padding: '5px 12px', borderRadius: '6px', border: '1.5px solid #0070c0', color: '#0070c0', backgroundColor: '#dceefb', cursor: 'pointer', fontSize: '12px', fontWeight: '600' },
   deleteBtn: { padding: '5px 12px', borderRadius: '6px', border: '1.5px solid #c0392b', color: '#c0392b', backgroundColor: '#fde8e8', cursor: 'pointer', fontSize: '12px', fontWeight: '600' },
   docBtn: { display: 'inline-block', padding: '3px 10px', borderRadius: '6px', backgroundColor: '#e8edf7', color: '#002060', fontSize: '11px', fontWeight: '700', textDecoration: 'none', border: '1px solid #c0cce0', cursor: 'pointer' },
+  hariLayananBadge: { display: 'inline-block', padding: '3px 10px', borderRadius: '10px', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' },
   emptyState: { padding: '60px 20px', textAlign: 'center', color: '#bbb' },
   emptyIcon: { width: '56px', height: '56px', borderRadius: '14px', backgroundColor: '#f4f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '800', color: '#bbb', margin: '0 auto 14px' },
   emptyTitle: { fontSize: '16px', fontWeight: '600', color: '#999', marginBottom: '6px' },
