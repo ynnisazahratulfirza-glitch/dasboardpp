@@ -59,6 +59,17 @@ export default function DaftarTunggu() {
 
   useEffect(() => { loadData() }, [])
 
+  const handleHapusSatu = async (id) => {
+    if (!window.confirm('Hapus data ini?')) return
+    try {
+      await deleteDoc(doc(db, 'daftar_tunggu', id))
+      setPelanggan((prev) => prev.filter((p) => p.id !== id))
+      toast.success('Data berhasil dihapus!')
+    } catch (err) {
+      toast.error('Gagal menghapus: ' + err.message)
+    }
+  }
+
   const doHapusSemua = async () => {
     try {
       const existingDocs = await getDocs(collection(db, 'daftar_tunggu'))
@@ -339,6 +350,7 @@ export default function DaftarTunggu() {
                   <th style={styles.th}>Daya Baru</th>
                   <th style={styles.th}>Tanggal</th>
                   <th style={styles.th}>Keterangan</th>
+                  <th style={styles.th}>Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -360,6 +372,14 @@ export default function DaftarTunggu() {
                     <td style={styles.td}>{p.dayaBaru || '-'}</td>
                     <td style={styles.td}>{p.tanggal || '-'}</td>
                     <td style={{ ...styles.td, maxWidth: '200px', fontSize: '12px', color: '#666' }}>{p.keterangan || '-'}</td>
+                    <td style={styles.td}>
+                      <button
+                        onClick={() => handleHapusSatu(p.id)}
+                        style={styles.deleteRowBtn}
+                      >
+                        Hapus
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -455,6 +475,7 @@ const styles = {
   emptyIcon: { width: '56px', height: '56px', borderRadius: '14px', backgroundColor: '#f4f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '800', color: '#bbb', margin: '0 auto 14px', letterSpacing: '0.5px' },
   emptyTitle: { fontSize: '16px', fontWeight: '600', color: '#999', marginBottom: '6px' },
   emptyDesc: { fontSize: '13px', color: '#ccc' },
+  deleteRowBtn: { padding: '4px 10px', borderRadius: '6px', border: '1.5px solid #c0392b', color: '#c0392b', backgroundColor: '#fde8e8', cursor: 'pointer', fontSize: '11px', fontWeight: '600' },
   overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' },
   confirmModal: { backgroundColor: 'white', borderRadius: '16px', padding: '32px', textAlign: 'center', maxWidth: '360px', width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' },
   confirmIconBox: { width: '60px', height: '60px', borderRadius: '14px', backgroundColor: '#fde8e8', color: '#c0392b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '800', margin: '0 auto 16px' },

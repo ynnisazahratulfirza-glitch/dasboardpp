@@ -35,6 +35,7 @@ export default function PerluasanJaringan() {
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [hapusSemuaConfirm, setHapusSemuaConfirm] = useState(false)
 
   const loadData = async () => {
     setLoading(true)
@@ -125,6 +126,18 @@ export default function PerluasanJaringan() {
     }
   }
 
+  const handleHapusSemua = async () => {
+    try {
+      const existingDocs = await getDocs(collection(db, 'perluasan_jaringan'))
+      await Promise.all(existingDocs.docs.map((d) => deleteDoc(doc(db, 'perluasan_jaringan', d.id))))
+      toast.success('Semua data berhasil dihapus!')
+      setData([])
+    } catch (err) {
+      toast.error('Gagal menghapus: ' + err.message)
+    }
+    setHapusSemuaConfirm(false)
+  }
+
   const getProgresConfig = (progres) => {
     const p = String(progres).toLowerCase()
     if (p.includes('selesai') || p.includes('done')) return { color: '#00873a', bg: '#d6f0e0', label: progres }
@@ -146,7 +159,14 @@ export default function PerluasanJaringan() {
           <h1 style={styles.pageTitle}>Perluasan Jaringan</h1>
           <p style={styles.pageSubtitle}>Kelola data perluasan jaringan PLN UP3 TJP</p>
         </div>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
         <button onClick={handleOpenAdd} style={styles.addBtn}>Tambah Data</button>
+        {data.length > 0 && (
+          <button onClick={() => setHapusSemuaConfirm(true)} style={styles.hapusSemuaBtn}>
+            Hapus Semua
+          </button>
+        )}
+      </div>
       </div>
 
       {/* Summary Cards */}
@@ -325,6 +345,21 @@ export default function PerluasanJaringan() {
           </div>
         </div>
       )}
+
+      {/* Hapus Semua Confirm */}
+      {hapusSemuaConfirm && (
+        <div style={styles.overlay}>
+          <div style={styles.confirmModal}>
+            <div style={styles.confirmIconBox}>HPS</div>
+            <h3 style={styles.confirmTitle}>Hapus Semua Data?</h3>
+            <p style={styles.confirmText}>Seluruh {data.length} data perluasan jaringan akan dihapus permanen.</p>
+            <div style={styles.confirmActions}>
+              <button onClick={() => setHapusSemuaConfirm(false)} style={styles.cancelBtn}>Batal</button>
+              <button onClick={handleHapusSemua} style={styles.deleteConfirmBtn}>Ya, Hapus Semua</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -375,6 +410,16 @@ const styles = {
     fontSize: '14px',
     fontWeight: '600',
     boxShadow: '0 2px 8px rgba(0,32,96,0.25)',
+  },
+  hapusSemuaBtn: {
+    backgroundColor: 'white',
+    color: '#c0392b',
+    border: '1.5px solid #c0392b',
+    padding: '11px 18px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
   },
   summaryGrid: {
     display: 'grid',
