@@ -377,7 +377,8 @@ export default function PerluasanJaringan() {
                       </td>
                       <td style={styles.td}>{item.dayaLama || '-'}</td>
                       <td style={styles.td}>{item.dayaBaru || '-'}</td>
-                      <td style={{ ...styles.td, maxWidth: '160px', fontSize: '12px', color: '#777' }}>{item.keterangan || '-'}</td>
+                      <td style={{ ...styles.td, maxWidth: '160px' }}>
+                        <KeteranganCell text={item.keterangan} /></td>
                       <td style={styles.td}>
                         {files.length > 0 ? (
                           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
@@ -622,6 +623,35 @@ export default function PerluasanJaringan() {
         </div>
       )}
     </div>
+  )
+}
+
+function KeteranganCell({ text }) {
+  const [open, setOpen] = React.useState(false)
+  if (!text) return <span style={{ color: '#ccc', fontSize: '12px' }}>-</span>
+  const isLong = text.length > 60
+  return (
+    <>
+      <div style={{ fontSize: '12px', color: '#555', lineHeight: '1.5', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>
+        {text}
+      </div>
+      {isLong && (
+        <button onClick={() => setOpen(true)} style={{ background: 'none', border: 'none', color: '#0070c0', fontSize: '11px', fontWeight: '600', cursor: 'pointer', padding: '2px 0', marginTop: '2px' }}>
+          Lihat selengkapnya
+        </button>
+      )}
+      {open && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,20,60,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '16px' }} onClick={() => setOpen(false)}>
+          <div style={{ backgroundColor: 'white', borderRadius: '14px', padding: '24px', maxWidth: '480px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: '12px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '12px' }}>Keterangan</div>
+            <p style={{ fontSize: '14px', color: '#333', lineHeight: '1.7', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{text}</p>
+            <button onClick={() => setOpen(false)} style={{ marginTop: '20px', padding: '9px 20px', borderRadius: '8px', border: '1.5px solid #e0e0e0', backgroundColor: 'white', color: '#555', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
